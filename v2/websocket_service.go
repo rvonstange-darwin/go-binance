@@ -110,41 +110,42 @@ func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler W
 			errHandler(err)
 			return
 		}
-		if j.Get("stream") == nil {
+		stream := j.Get("stream").MustString()
+		symbol := strings.Split(stream, "@")[0]
+		data := j.Get("data").MustMap()
+		if data["t"] != nil {
 			t_event := new(WsTradeEvent)
-			err := json.Unmarshal(message, t_event)
+			jsonData, _ := json.Marshal(data)
+			err := json.Unmarshal(jsonData, t_event)
 			if err != nil {
 				errHandler(err)
 				return
 			}
 			thandler(t_event)
 		} else {
-			event := new(WsPartialDepthEvent)
-			stream := j.Get("stream").MustString()
-			symbol := strings.Split(stream, "@")[0]
-			event.Symbol = strings.ToUpper(symbol)
-			data := j.Get("data").MustMap()
-			event.LastUpdateID, _ = data["lastUpdateId"].(json.Number).Int64()
+			d_event := new(WsPartialDepthEvent)
+			d_event.Symbol = strings.ToUpper(symbol)
+			d_event.LastUpdateID, _ = data["lastUpdateId"].(json.Number).Int64()
 			bidsLen := len(data["bids"].([]interface{}))
-			event.Bids = make([]Bid, bidsLen)
+			d_event.Bids = make([]Bid, bidsLen)
 			for i := 0; i < bidsLen; i++ {
 				item := data["bids"].([]interface{})[i].([]interface{})
-				event.Bids[i] = Bid{
+				d_event.Bids[i] = Bid{
 					Price:    item[0].(string),
 					Quantity: item[1].(string),
 				}
 			}
 			asksLen := len(data["asks"].([]interface{}))
-			event.Asks = make([]Ask, asksLen)
+			d_event.Asks = make([]Ask, asksLen)
 			for i := 0; i < asksLen; i++ {
 
 				item := data["asks"].([]interface{})[i].([]interface{})
-				event.Asks[i] = Ask{
+				d_event.Asks[i] = Ask{
 					Price:    item[0].(string),
 					Quantity: item[1].(string),
 				}
 			}
-			dhandler(event)
+			dhandler(d_event)
 		}
 	}
 	return wsServe(cfg, wsHandler, errHandler)
