@@ -97,6 +97,60 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 }
 
 // WsCombinedPartialDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
+func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
+	endpoint := getCombinedEndpoint()
+	for s, l := range symbolLevels {
+		endpoint += fmt.Sprintf("%s@depth%s@100ms%s@trade", strings.ToLower(s), l, strings.ToLower((s))) + "/"
+	}
+	endpoint = endpoint[:len(endpoint)-1]
+	cfg := newWsConfig(endpoint)
+	wsHandler := func(message []byte) {
+		j, err := newJSON(message)
+		if err != nil {
+			errHandler(err)
+			return
+		}
+		if j.Get("stream") == nil {
+			t_event := new(WsTradeEvent)
+			err := json.Unmarshal(message, t_event)
+			if err != nil {
+				errHandler(err)
+				return
+			}
+			thandler(t_event)
+		} else {
+			event := new(WsPartialDepthEvent)
+			stream := j.Get("stream").MustString()
+			symbol := strings.Split(stream, "@")[0]
+			event.Symbol = strings.ToUpper(symbol)
+			data := j.Get("data").MustMap()
+			event.LastUpdateID, _ = data["lastUpdateId"].(json.Number).Int64()
+			bidsLen := len(data["bids"].([]interface{}))
+			event.Bids = make([]Bid, bidsLen)
+			for i := 0; i < bidsLen; i++ {
+				item := data["bids"].([]interface{})[i].([]interface{})
+				event.Bids[i] = Bid{
+					Price:    item[0].(string),
+					Quantity: item[1].(string),
+				}
+			}
+			asksLen := len(data["asks"].([]interface{}))
+			event.Asks = make([]Ask, asksLen)
+			for i := 0; i < asksLen; i++ {
+
+				item := data["asks"].([]interface{})[i].([]interface{})
+				event.Asks[i] = Ask{
+					Price:    item[0].(string),
+					Quantity: item[1].(string),
+				}
+			}
+			dhandler(event)
+		}
+	}
+	return wsServe(cfg, wsHandler, errHandler)
+}
+
+// WsCombinedPartialDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
 func WsCombinedPartialDepthServe(symbolLevels map[string]string, handler WsPartialDepthHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
