@@ -2,9 +2,8 @@ package binance
 
 import (
 	"context"
-	"time"
-
 	"nhooyr.io/websocket"
+	"time"
 )
 
 // WsHandler handle raw websocket message
@@ -12,8 +11,6 @@ type WsHandler func(message []byte)
 
 // ErrHandler handles errors
 type ErrHandler func(err error)
-
-type LogHandler func(msg string)
 
 // WsConfig webservice configuration
 type WsConfig struct {
