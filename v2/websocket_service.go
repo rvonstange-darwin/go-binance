@@ -97,7 +97,7 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 }
 
 // WsCombinedPartialDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
-func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
+func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler, logHandler LogHandler) (doneC, stopC chan struct{}, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
 		endpoint += fmt.Sprintf("%s@depth%s@100ms%s@trade", strings.ToLower(s), l, strings.ToLower((s))) + "/"
@@ -106,19 +106,23 @@ func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler W
 	cfg := newWsConfig(endpoint)
 	wsHandler := func(message []byte) {
 		j, err := newJSON(message)
+		logHandler("Handling message...")
 		if err != nil {
 			errHandler(err)
 			return
 		}
 		if j.Get("stream") == nil {
+			logHandler("Entering trade branch.")
 			t_event := new(WsTradeEvent)
 			err := json.Unmarshal(message, t_event)
 			if err != nil {
 				errHandler(err)
 				return
 			}
+			logHandler("I'm about to handle the trade event")
 			thandler(t_event)
 		} else {
+			logHandler("Entering depth branch.")
 			event := new(WsPartialDepthEvent)
 			stream := j.Get("stream").MustString()
 			symbol := strings.Split(stream, "@")[0]
@@ -144,6 +148,7 @@ func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler W
 					Quantity: item[1].(string),
 				}
 			}
+			logHandler("Handling depth event.")
 			dhandler(event)
 		}
 	}
