@@ -2,8 +2,9 @@ package binance
 
 import (
 	"context"
-	"nhooyr.io/websocket"
 	"time"
+
+	"nhooyr.io/websocket"
 )
 
 // WsHandler handle raw websocket message
@@ -23,7 +24,7 @@ func newWsConfig(endpoint string) *WsConfig {
 	}
 }
 
-var wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
+func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c, _, err := websocket.Dial(ctx, cfg.Endpoint, nil)
 	if err != nil {
@@ -33,6 +34,7 @@ var wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (don
 	c.SetReadLimit(655350)
 	doneC = make(chan struct{})
 	stopC = make(chan struct{})
+	receivedDataC := make(chan bool)
 	go func() {
 		// This function will exit either on error from
 		// websocket.Conn.ReadMessage or when the stopC channel is
@@ -46,13 +48,31 @@ var wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (don
 		// separate goroutine because ReadMessage is a blocking
 		// operation.
 		silent := false
+		close := false
+		reconnect := false
 		go func() {
-			select {
-			case <-stopC:
-				silent = true
-			case <-doneC:
+			for {
+				select {
+				case <-receivedDataC:
+					//If we received data then we do nothing
+				case <-time.After(2 * time.Second):
+					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
+					close = true
+					reconnect = true
+				case <-stopC:
+					silent = true
+					close = true
+				case <-doneC:
+					close = true
+				}
+				if close {
+					_ = c.Close(websocket.StatusNormalClosure, "normal closure")
+				}
+				if reconnect {
+					go wsServeFunc(cfg, handler, errHandler)
+					return
+				}
 			}
-			_ = c.Close(websocket.StatusNormalClosure, "normal closure")
 		}()
 		for {
 			_, message, readErr := c.Read(ctx)
@@ -62,11 +82,14 @@ var wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (don
 				}
 				return
 			}
+			receivedDataC <- true
 			handler(message)
 		}
 	}()
 	return
 }
+
+var wsServe = wsServeFunc
 
 func keepAlive(ctx context.Context, c *websocket.Conn, d time.Duration) {
 	t := time.NewTimer(d)
