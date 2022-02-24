@@ -24,16 +24,19 @@ func newWsConfig(endpoint string) *WsConfig {
 	}
 }
 
-func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, err error) {
+const MISSING_MARKET_DATA_THRESHOLD time.Duration = 2 * time.Second
+
+func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c, _, err := websocket.Dial(ctx, cfg.Endpoint, nil)
 	if err != nil {
 		cancel()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	c.SetReadLimit(655350)
 	doneC = make(chan struct{})
 	stopC = make(chan struct{})
+	restartC = make(chan bool)
 	receivedDataC := make(chan bool)
 	go func() {
 		// This function will exit either on error from
@@ -49,16 +52,15 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 		// operation.
 		silent := false
 		close := false
-		reconnect := false
 		go func() {
 			for {
 				select {
 				case <-receivedDataC:
 					//If we received data then we do nothing
-				case <-time.After(2 * time.Second):
+				case <-time.After(MISSING_MARKET_DATA_THRESHOLD):
 					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
+					restartC <- true
 					close = true
-					reconnect = true
 				case <-stopC:
 					silent = true
 					close = true
@@ -67,10 +69,6 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 				}
 				if close {
 					_ = c.Close(websocket.StatusNormalClosure, "normal closure")
-				}
-				if reconnect {
-					go wsServeFunc(cfg, handler, errHandler)
-					return
 				}
 			}
 		}()
