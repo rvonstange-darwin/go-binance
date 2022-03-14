@@ -43,6 +43,9 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 		// websocket.Conn.ReadMessage or when the stopC channel is
 		// closed by the client.
 		defer close(doneC)
+		defer close(stopC)
+		defer close(restartC)
+		defer close(receivedDataC)
 		defer cancel()
 		if WebsocketKeepalive {
 			go keepAlive(ctx, c, WebsocketTimeout)
@@ -69,6 +72,7 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 				}
 				if close {
 					_ = c.Close(websocket.StatusNormalClosure, "normal closure")
+					return
 				}
 			}
 		}()
@@ -78,6 +82,9 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 				if !silent {
 					errHandler(readErr)
 				}
+				return
+			}
+			if close {
 				return
 			}
 			receivedDataC <- true
