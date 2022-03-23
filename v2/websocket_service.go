@@ -97,10 +97,10 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 }
 
 // WsCombinedPartialDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
-func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
+func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, rate string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
-		endpoint += fmt.Sprintf("%s@depth%s@100ms/%s@trade", strings.ToLower(s), l, strings.ToLower((s))) + "/"
+		endpoint += fmt.Sprintf("%s@depth%s@%sms/%s@trade", strings.ToLower(s), l, rate, strings.ToLower((s))) + "/"
 	}
 	endpoint = endpoint[:len(endpoint)-1]
 	cfg := newWsConfig(endpoint)
