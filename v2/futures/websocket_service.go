@@ -947,7 +947,7 @@ type WsTradeEvent struct {
 func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, rate string, dhandler WsDepthHandler, thandler WsTradeHandler, bhandler WsBookTickerHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
-		endpoint += fmt.Sprintf("%s@depth%s@%sms/%s@trade/%s@bookticker", strings.ToLower(s), l, rate, strings.ToLower(s), strings.ToLower(s)) + "/"
+		endpoint += fmt.Sprintf("%s@depth%s@%sms/%s@trade/%s@bookTicker", strings.ToLower(s), l, rate, strings.ToLower(s), strings.ToLower(s)) + "/"
 	}
 	endpoint = endpoint[:len(endpoint)-1]
 	cfg := newWsConfig(endpoint)
@@ -969,7 +969,8 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 			thandler(t_event)
 		} else if data["e"] == "bookTicker" {
 			b_event := new(WsBookTickerEvent)
-			err := json.Unmarshal(message, &b_event)
+			jsonData, _ := json.Marshal(data)
+			err := json.Unmarshal(jsonData, b_event)
 			if err != nil {
 				errHandler(err)
 				return
