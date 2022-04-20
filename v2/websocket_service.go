@@ -97,10 +97,10 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 }
 
 // WsCombinedPartialDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
-func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, rate string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
+func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, rate string, dhandler WsPartialDepthHandler, thandler WsTradeHandler, bhandler WsBookTickerHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
-		endpoint += fmt.Sprintf("%s@depth%s@%sms/%s@trade", strings.ToLower(s), l, rate, strings.ToLower((s))) + "/"
+		endpoint += fmt.Sprintf("%s@depth%s@%sms/%s@trade/%s@bookticker", strings.ToLower(s), l, rate, strings.ToLower(s), strings.ToLower(s)) + "/"
 	}
 	endpoint = endpoint[:len(endpoint)-1]
 	cfg := newWsConfig(endpoint)
@@ -122,6 +122,15 @@ func WsCombinedPartialDepthTradeServe(symbolLevels map[string]string, rate strin
 				return
 			}
 			thandler(t_event)
+		} else if data["B"] != nil && data["A"] != nil {
+			// This branch is used for the book ticker event as neither of the other types contain "B" and "A"
+			b_event := new(WsBookTickerEvent)
+			err := json.Unmarshal(message, &b_event)
+			if err != nil {
+				errHandler(err)
+				return
+			}
+			bhandler(b_event)
 		} else {
 			d_event := new(WsPartialDepthEvent)
 			d_event.Symbol = strings.ToUpper(symbol)
