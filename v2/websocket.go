@@ -26,7 +26,7 @@ func newWsConfig(endpoint string) *WsConfig {
 
 const MISSING_MARKET_DATA_THRESHOLD time.Duration = 2 * time.Second
 
-func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
+func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, threshold ...time.Duration) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c, _, err := websocket.Dial(ctx, cfg.Endpoint, nil)
 	if err != nil {
@@ -53,6 +53,10 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 		// Wait for the stopC channel to be closed.  We do that in a
 		// separate goroutine because ReadMessage is a blocking
 		// operation.
+		restartThreshold := MISSING_MARKET_DATA_THRESHOLD
+		if len(threshold) > 0 {
+			restartThreshold = threshold[0]
+		}
 		silent := false
 		close := false
 		go func() {
@@ -60,7 +64,7 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC
 				select {
 				case <-receivedDataC:
 					//If we received data then we do nothing
-				case <-time.After(MISSING_MARKET_DATA_THRESHOLD):
+				case <-time.After(restartThreshold):
 					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
 					restartC <- true
 					close = true
