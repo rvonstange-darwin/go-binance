@@ -165,7 +165,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 func WsCombinedPartialDepthServe(symbolLevels map[string]string, handler WsPartialDepthHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
-		endpoint += fmt.Sprintf("%s@depth%s@100ms", strings.ToLower(s), l) + "/"
+		endpoint += fmt.Sprintf("%s@depth%s", strings.ToLower(s), l) + "/"
 	}
 	endpoint = endpoint[:len(endpoint)-1]
 	cfg := newWsConfig(endpoint)
