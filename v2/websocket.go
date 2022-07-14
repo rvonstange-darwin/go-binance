@@ -26,9 +26,22 @@ func newWsConfig(endpoint string) *WsConfig {
 
 const MISSING_MARKET_DATA_THRESHOLD time.Duration = 2 * time.Second
 
-func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, threshold ...time.Duration) (doneC, stopC chan struct{}, restartC chan bool, err error) {
+type RestartChannel struct {
+	id     int
+	status bool
+}
+
+type WsServeParams struct {
+	cfg          *WsConfig
+	handler      WsHandler
+	errHandler   ErrHandler
+	threshold    time.Duration
+	connectionId int
+}
+
+func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC chan RestartChannel, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	c, _, err := websocket.Dial(ctx, cfg.Endpoint, nil)
+	c, _, err := websocket.Dial(ctx, params.cfg.Endpoint, nil)
 	if err != nil {
 		cancel()
 		return nil, nil, nil, err
@@ -36,7 +49,7 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, thresh
 	c.SetReadLimit(655350)
 	doneC = make(chan struct{})
 	stopC = make(chan struct{})
-	restartC = make(chan bool)
+	restartC = make(chan RestartChannel)
 	receivedDataC := make(chan bool)
 	go func() {
 		// This function will exit either on error from
@@ -54,8 +67,8 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, thresh
 		// separate goroutine because ReadMessage is a blocking
 		// operation.
 		restartThreshold := MISSING_MARKET_DATA_THRESHOLD
-		if len(threshold) > 0 {
-			restartThreshold = threshold[0]
+		if params.threshold != 0 {
+			restartThreshold = params.threshold
 		}
 		silent := false
 		close := false
@@ -66,7 +79,10 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, thresh
 					//If we received data then we do nothing
 				case <-time.After(restartThreshold):
 					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
-					restartC <- true
+					restartC <- RestartChannel{
+						id:     params.connectionId,
+						status: true,
+					}
 					close = true
 				case <-stopC:
 					silent = true
@@ -84,7 +100,7 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, thresh
 			_, message, readErr := c.Read(ctx)
 			if readErr != nil {
 				if !silent {
-					errHandler(readErr)
+					params.errHandler(readErr)
 				}
 				return
 			}
@@ -92,7 +108,7 @@ func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, thresh
 				return
 			}
 			receivedDataC <- true
-			handler(message)
+			params.handler(message)
 		}
 	}()
 	return

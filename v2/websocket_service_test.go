@@ -11,7 +11,7 @@ import (
 
 type websocketServiceTestSuite struct {
 	baseTestSuite
-	origWsServe func(*WsConfig, WsHandler, ErrHandler, ...time.Duration) (chan struct{}, chan struct{}, chan bool, error)
+	origWsServe func(WsServeParams) (chan struct{}, chan struct{}, chan RestartChannel, error)
 	serveCount  int
 }
 
@@ -29,18 +29,18 @@ func (s *websocketServiceTestSuite) TearDownTest() {
 }
 
 func (s *websocketServiceTestSuite) mockWsServe(data []byte, err error) {
-	wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, threshold ...time.Duration) (doneC, stopC chan struct{}, restartC chan bool, innerErr error) {
+	wsServe = func(params WsServeParams) (doneC, stopC chan struct{}, restartC chan RestartChannel, innerErr error) {
 		s.serveCount++
 		doneC = make(chan struct{})
 		stopC = make(chan struct{})
-		restartC = make(chan bool)
+		restartC = make(chan RestartChannel)
 		go func() {
 			<-stopC
 			close(doneC)
 		}()
-		handler(data)
+		params.handler(data)
 		if err != nil {
-			errHandler(err)
+			params.errHandler(err)
 		}
 		return doneC, stopC, restartC, nil
 	}
