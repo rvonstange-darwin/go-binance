@@ -27,8 +27,8 @@ func newWsConfig(endpoint string) *WsConfig {
 const MISSING_MARKET_DATA_THRESHOLD time.Duration = 2 * time.Second
 
 type RestartChannel struct {
-	id     int
-	status bool
+	Id     int
+	Status bool
 }
 
 type WsServeParams struct {
@@ -80,8 +80,8 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 				case <-time.After(restartThreshold):
 					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
 					restartC <- RestartChannel{
-						id:     params.connectionId,
-						status: true,
+						Id:     params.connectionId,
+						Status: true,
 					}
 					close = true
 				case <-stopC:
