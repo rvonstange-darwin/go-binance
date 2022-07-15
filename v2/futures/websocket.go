@@ -8,7 +8,7 @@ import (
 )
 
 // WsHandler handle raw websocket message
-type WsHandler func(message []byte)
+type WsHandler func(message []byte, connectionId int)
 
 // ErrHandler handles errors
 type ErrHandler func(err error)
@@ -108,7 +108,7 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 				return
 			}
 			receivedDataC <- true
-			params.handler(message)
+			params.handler(message, params.connectionId)
 		}
 	}()
 	return

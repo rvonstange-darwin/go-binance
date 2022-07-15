@@ -38,7 +38,7 @@ func (s *websocketServiceTestSuite) mockWsServe(data []byte, err error) {
 			<-stopC
 			close(doneC)
 		}()
-		params.handler(data)
+		params.handler(data, params.connectionId)
 		if err != nil {
 			params.errHandler(err)
 		}
@@ -928,7 +928,7 @@ func (s *websocketServiceTestSuite) testPartialDepthServe(rate *time.Duration, e
 	s.mockWsServe(data, expectedErr)
 	defer s.assertWsServe(expectedServeCnt)
 
-	handler := func(event *WsDepthEvent) {
+	handler := func(event *WsDepthEvent, connectionId int) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             1571889248277,
@@ -1021,7 +1021,7 @@ func (s *websocketServiceTestSuite) testDiffDepthServe(rate *time.Duration, expe
 	s.mockWsServe(data, expectedErr)
 	defer s.assertWsServe(expectedServeCnt)
 
-	handler := func(event *WsDepthEvent) {
+	handler := func(event *WsDepthEvent, connectionId int) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             123456789,
@@ -1078,7 +1078,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedDiffDepthServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsCombinedDiffDepthServe(symbols, func(event *WsDepthEvent) {
+	doneC, stopC, _, err := WsCombinedDiffDepthServe(symbols, func(event *WsDepthEvent, connectionId int) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             1628847118038,
