@@ -56,8 +56,6 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 		// websocket.Conn.ReadMessage or when the stopC channel is
 		// closed by the client.
 		defer close(doneC)
-		defer close(stopC)
-		defer close(restartC)
 		defer close(receivedDataC)
 		defer cancel()
 		if WebsocketKeepalive {
