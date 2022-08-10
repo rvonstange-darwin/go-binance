@@ -40,7 +40,7 @@ func (s *websocketServiceTestSuite) mockWsServe(data []byte, err error) {
 		}()
 		params.handler(data, params.connectionId)
 		if err != nil {
-			params.errHandler(err)
+			params.errHandler(err, "")
 		}
 		return doneC, stopC, restartC, nil
 	}
@@ -95,7 +95,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -145,7 +145,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe100Ms() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -201,7 +201,7 @@ func (s *websocketServiceTestSuite) TestCombinedPartialDepthServe() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -288,7 +288,7 @@ func (s *websocketServiceTestSuite) TestDepthServe() {
 			},
 		}
 		s.assertWsDepthEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -361,7 +361,7 @@ func (s *websocketServiceTestSuite) TestDepthServe100Ms() {
 			},
 		}
 		s.assertWsDepthEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -430,7 +430,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe() {
 		}
 		s.assertWsDepthEventEqual(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -482,7 +482,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe100Ms() {
 		}
 		s.assertWsDepthEventEqual(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -544,7 +544,7 @@ func (s *websocketServiceTestSuite) TestKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -608,7 +608,7 @@ func (s *websocketServiceTestSuite) TestWsAggTradeServe() {
 			IsBuyerMaker:          false,
 		}
 		s.assertWsAggTradeEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -675,7 +675,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -718,7 +718,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedAggTradeServe() {
 			IsBuyerMaker:          false,
 		}
 		s.assertWsAggTradeEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -806,7 +806,7 @@ func (s *websocketServiceTestSuite) testWsUserDataServe(data []byte, expectedEve
 
 	doneC, stopC, _, err := WsUserDataServe("fakeListenKey", func(event *WsUserDataEvent) {
 		s.assertUserDataEvent(expectedEvent, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 
@@ -973,7 +973,7 @@ func (s *websocketServiceTestSuite) TestWsMarketStatServe() {
 			Count:              18151,
 		}
 		s.assertWsMarketStatEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1041,7 +1041,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedMarketStatServe() {
 			Count:              18151,
 		}
 		s.assertWsMarketStatEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1184,7 +1184,7 @@ func (s *websocketServiceTestSuite) TestWsAllMarketsStatServe() {
 			},
 		}
 		s.assertWsAllMarketsStatEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1230,7 +1230,7 @@ func (s *websocketServiceTestSuite) TestWsTradeServe() {
 			IsBuyerMaker:  true,
 		}
 		s.assertWsTradeEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1304,7 +1304,7 @@ func (s *websocketServiceTestSuite) TestWsAllMiniMarketsStatServe() {
 			},
 		}
 		s.assertWsAllMiniMarketsStatEventEqual(e, event)
-	}, func(err error) {
+	}, func(err error, message string) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1356,7 +1356,7 @@ func (s *websocketServiceTestSuite) TestBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1390,7 +1390,7 @@ func (s *websocketServiceTestSuite) TestAllBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error) {
+		func(err error, message string) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 

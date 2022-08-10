@@ -67,7 +67,7 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "")
 			return
 		}
 		event := new(WsPartialDepthEvent)
@@ -111,7 +111,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "Failed to json-ify message.")
 			return
 		}
 		stream := j.Get("stream").MustString()
@@ -122,7 +122,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 			jsonData, _ := json.Marshal(data)
 			err := json.Unmarshal(jsonData, t_event)
 			if err != nil {
-				errHandler(err)
+				errHandler(err, "Failed to unmarshall trade event.")
 				return
 			}
 			thandler(t_event, connectionId)
@@ -132,7 +132,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 			jsonData, _ := json.Marshal(data)
 			err := json.Unmarshal(jsonData, b_event)
 			if err != nil {
-				errHandler(err)
+				errHandler(err, "Failed to unmarshall book ticker event.")
 				return
 			}
 			bhandler(b_event, connectionId)
@@ -181,7 +181,7 @@ func WsCombinedPartialDepthServe(symbolLevels map[string]string, handler WsParti
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "")
 			return
 		}
 		event := new(WsPartialDepthEvent)
