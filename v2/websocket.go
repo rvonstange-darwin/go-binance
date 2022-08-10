@@ -11,7 +11,7 @@ import (
 type WsHandler func(message []byte, connectionId int)
 
 // ErrHandler handles errors
-type ErrHandler func(err error, message string)
+type ErrHandler func(err error, message string, connectionId int)
 
 // WsConfig webservice configuration
 type WsConfig struct {
@@ -98,7 +98,7 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 			_, message, readErr := c.Read(ctx)
 			if readErr != nil {
 				if !silent {
-					params.errHandler(readErr, "WS Read Error occurred.")
+					params.errHandler(readErr, "WS Read Error occurred.", params.connectionId)
 				}
 				return
 			}

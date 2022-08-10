@@ -67,7 +67,7 @@ func wsPartialDepthServe(endpoint string, symbol string, handler WsPartialDepthH
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err, "")
+			errHandler(err, "", 0)
 			return
 		}
 		event := new(WsPartialDepthEvent)
@@ -111,7 +111,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err, "Failed to json-ify message.")
+			errHandler(err, "Failed to json-ify message.", connectionId)
 			return
 		}
 		stream := j.Get("stream").MustString()
@@ -122,7 +122,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 			jsonData, _ := json.Marshal(data)
 			err := json.Unmarshal(jsonData, t_event)
 			if err != nil {
-				errHandler(err, "Failed to unmarshall trade event.")
+				errHandler(err, "Failed to unmarshall trade event.", connectionId)
 				return
 			}
 			thandler(t_event, connectionId)
@@ -132,7 +132,7 @@ func WsCombinedPartialDepthTradeBookTickerServe(symbolLevels map[string]string, 
 			jsonData, _ := json.Marshal(data)
 			err := json.Unmarshal(jsonData, b_event)
 			if err != nil {
-				errHandler(err, "Failed to unmarshall book ticker event.")
+				errHandler(err, "Failed to unmarshall book ticker event.", connectionId)
 				return
 			}
 			bhandler(b_event, connectionId)
@@ -181,7 +181,7 @@ func WsCombinedPartialDepthServe(symbolLevels map[string]string, handler WsParti
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err, "")
+			errHandler(err, "", 0)
 			return
 		}
 		event := new(WsPartialDepthEvent)
@@ -240,7 +240,7 @@ func wsDepthServe(endpoint string, handler WsDepthHandler, errHandler ErrHandler
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		event := new(WsDepthEvent)
@@ -311,7 +311,7 @@ func wsCombinedDepthServe(endpoint string, handler WsDepthHandler, errHandler Er
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		event := new(WsDepthEvent)
@@ -364,7 +364,7 @@ func WsCombinedKlineServe(symbolIntervalPair map[string]string, handler WsKlineH
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -378,7 +378,7 @@ func WsCombinedKlineServe(symbolIntervalPair map[string]string, handler WsKlineH
 		event := new(WsKlineEvent)
 		err = json.Unmarshal(jsonData, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		event.Symbol = strings.ToUpper(symbol)
@@ -400,7 +400,7 @@ func WsKlineServe(symbol string, interval string, handler WsKlineHandler, errHan
 		event := new(WsKlineEvent)
 		err := json.Unmarshal(message, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event)
@@ -451,7 +451,7 @@ func WsAggTradeServe(symbol string, handler WsAggTradeHandler, errHandler ErrHan
 		event := new(WsAggTradeEvent)
 		err := json.Unmarshal(message, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event)
@@ -474,7 +474,7 @@ func WsCombinedAggTradeServe(symbols []string, handler WsAggTradeHandler, errHan
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -488,7 +488,7 @@ func WsCombinedAggTradeServe(symbols []string, handler WsAggTradeHandler, errHan
 		event := new(WsAggTradeEvent)
 		err = json.Unmarshal(jsonData, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -529,7 +529,7 @@ func WsTradeServe(symbol string, handler WsTradeHandler, errHandler ErrHandler) 
 		event := new(WsTradeEvent)
 		err := json.Unmarshal(message, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event, 0)
@@ -638,7 +638,7 @@ func WsUserDataServe(listenKey string, handler WsUserDataHandler, errHandler Err
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -646,7 +646,7 @@ func WsUserDataServe(listenKey string, handler WsUserDataHandler, errHandler Err
 
 		err = json.Unmarshal(message, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -656,13 +656,13 @@ func WsUserDataServe(listenKey string, handler WsUserDataHandler, errHandler Err
 		case UserDataEventTypeBalanceUpdate:
 			err = json.Unmarshal(message, &event.BalanceUpdate)
 			if err != nil {
-				errHandler(err)
+				errHandler(err, "", 0)
 				return
 			}
 		case UserDataEventTypeExecutionReport:
 			err = json.Unmarshal(message, &event.OrderUpdate)
 			if err != nil {
-				errHandler(err)
+				errHandler(err, "", 0)
 				return
 			}
 			// Unmarshal has case sensitive problem
@@ -674,7 +674,7 @@ func WsUserDataServe(listenKey string, handler WsUserDataHandler, errHandler Err
 		case UserDataEventTypeListStatus:
 			err = json.Unmarshal(message, &event.OCOUpdate)
 			if err != nil {
-				errHandler(err)
+				errHandler(err, "", 0)
 				return
 			}
 		}
@@ -703,7 +703,7 @@ func WsCombinedMarketStatServe(symbols []string, handler WsMarketStatHandler, er
 	wsHandler := func(message []byte, connectionId int) {
 		j, err := newJSON(message)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -717,7 +717,7 @@ func WsCombinedMarketStatServe(symbols []string, handler WsMarketStatHandler, er
 		event := new(WsMarketStatEvent)
 		err = json.Unmarshal(jsonData, event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 
@@ -740,7 +740,7 @@ func WsMarketStatServe(symbol string, handler WsMarketStatHandler, errHandler Er
 		var event WsMarketStatEvent
 		err := json.Unmarshal(message, &event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(&event)
@@ -763,7 +763,7 @@ func WsAllMarketsStatServe(handler WsAllMarketsStatHandler, errHandler ErrHandle
 		var event WsAllMarketsStatEvent
 		err := json.Unmarshal(message, &event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event)
@@ -816,7 +816,7 @@ func WsAllMiniMarketsStatServe(handler WsAllMiniMarketsStatServeHandler, errHand
 		var event WsAllMiniMarketsStatEvent
 		err := json.Unmarshal(message, &event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event)
@@ -865,7 +865,7 @@ func WsBookTickerServe(symbol string, handler WsBookTickerHandler, errHandler Er
 		event := new(WsBookTickerEvent)
 		err := json.Unmarshal(message, &event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event, 0)
@@ -885,7 +885,7 @@ func WsAllBookTickerServe(handler WsBookTickerHandler, errHandler ErrHandler) (d
 		event := new(WsBookTickerEvent)
 		err := json.Unmarshal(message, &event)
 		if err != nil {
-			errHandler(err)
+			errHandler(err, "", 0)
 			return
 		}
 		handler(event, 0)
