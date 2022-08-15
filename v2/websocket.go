@@ -98,7 +98,11 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 			_, message, readErr := c.Read(ctx)
 			if readErr != nil {
 				if !silent {
-					params.errHandler(readErr, "WS Read Error occurred.", params.connectionId)
+					params.errHandler(readErr, "WS read error occurred while reading a margin web socket.", params.connectionId)
+				}
+				restartC <- RestartChannel{
+					Id:     params.connectionId,
+					Status: true,
 				}
 				return
 			}

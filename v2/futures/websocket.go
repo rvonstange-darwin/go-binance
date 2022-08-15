@@ -100,6 +100,10 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 				if !silent {
 					params.errHandler(readErr, "WS read error occurred while reading a future web socket.", params.connectionId)
 				}
+				restartC <- RestartChannel{
+					Id:     params.connectionId,
+					Status: true,
+				}
 				return
 			}
 			if close {
