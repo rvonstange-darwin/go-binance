@@ -11,7 +11,7 @@ import (
 
 type websocketServiceTestSuite struct {
 	baseTestSuite
-	origWsServe func(WsServeParams) (chan struct{}, chan struct{}, chan RestartChannel, error)
+	origWsServe func(*WsConfig, WsHandler, ErrHandler, ...time.Duration) (chan struct{}, chan struct{}, chan bool, error)
 	serveCount  int
 }
 
@@ -29,18 +29,18 @@ func (s *websocketServiceTestSuite) TearDownTest() {
 }
 
 func (s *websocketServiceTestSuite) mockWsServe(data []byte, err error) {
-	wsServe = func(params WsServeParams) (doneC, stopC chan struct{}, restartC chan RestartChannel, innerErr error) {
+	wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, threshold ...time.Duration) (doneC, stopC chan struct{}, restartC chan bool, innerErr error) {
 		s.serveCount++
 		doneC = make(chan struct{})
 		stopC = make(chan struct{})
-		restartC = make(chan RestartChannel)
+		restartC = make(chan bool)
 		go func() {
 			<-stopC
 			close(doneC)
 		}()
-		params.handler(data, params.connectionId)
+		handler(data)
 		if err != nil {
-			params.errHandler(err, "", 0)
+			errHandler(err)
 		}
 		return doneC, stopC, restartC, nil
 	}
@@ -76,7 +76,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsPartialDepthServe("ETHBTC", "5", func(event *WsPartialDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsPartialDepthServe("ETHBTC", "5", func(event *WsPartialDepthEvent) {
 		e := &WsPartialDepthEvent{
 			Symbol:       "ETHBTC",
 			LastUpdateID: 160,
@@ -95,7 +95,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -126,7 +126,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe100Ms() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsPartialDepthServe100Ms("ETHBTC", "5", func(event *WsPartialDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsPartialDepthServe100Ms("ETHBTC", "5", func(event *WsPartialDepthEvent) {
 		e := &WsPartialDepthEvent{
 			Symbol:       "ETHBTC",
 			LastUpdateID: 160,
@@ -145,7 +145,7 @@ func (s *websocketServiceTestSuite) TestPartialDepthServe100Ms() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -182,7 +182,7 @@ func (s *websocketServiceTestSuite) TestCombinedPartialDepthServe() {
 	fakeErrMsg := "fake error"
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
-	doneC, stopC, _, err := WsCombinedPartialDepthServe(symbolLevels, func(event *WsPartialDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsCombinedPartialDepthServe(symbolLevels, func(event *WsPartialDepthEvent) {
 		e := &WsPartialDepthEvent{
 			Symbol:       "ETHUSDT",
 			LastUpdateID: 160,
@@ -201,7 +201,7 @@ func (s *websocketServiceTestSuite) TestCombinedPartialDepthServe() {
 		}
 		s.assertWsPartialDepthEventEqual(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -259,7 +259,7 @@ func (s *websocketServiceTestSuite) TestDepthServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsDepthServe("ETHBTC", func(event *WsDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsDepthServe("ETHBTC", func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Event:         "depthUpdate",
 			Time:          1499404630606,
@@ -288,7 +288,7 @@ func (s *websocketServiceTestSuite) TestDepthServe() {
 			},
 		}
 		s.assertWsDepthEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -332,7 +332,7 @@ func (s *websocketServiceTestSuite) TestDepthServe100Ms() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsDepthServe100Ms("ETHBTC", func(event *WsDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsDepthServe100Ms("ETHBTC", func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Event:         "depthUpdate",
 			Time:          1499404630606,
@@ -361,7 +361,7 @@ func (s *websocketServiceTestSuite) TestDepthServe100Ms() {
 			},
 		}
 		s.assertWsDepthEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -405,7 +405,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe() {
 	fakeErrMsg := "fake error"
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
-	doneC, stopC, _, err := WsCombinedDepthServe(symbols, func(event *WsDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsCombinedDepthServe(symbols, func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Symbol:        "BTCUSDT",
 			Time:          1629769560797,
@@ -430,7 +430,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe() {
 		}
 		s.assertWsDepthEventEqual(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -457,7 +457,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe100Ms() {
 	fakeErrMsg := "fake error"
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
-	doneC, stopC, _, err := WsCombinedDepthServe100Ms(symbols, func(event *WsDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsCombinedDepthServe100Ms(symbols, func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Symbol:        "BTCUSDT",
 			Time:          1629769560797,
@@ -482,7 +482,7 @@ func (s *websocketServiceTestSuite) TestCombinedDepthServe100Ms() {
 		}
 		s.assertWsDepthEventEqual(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 	s.r().NoError(err)
@@ -544,7 +544,7 @@ func (s *websocketServiceTestSuite) TestKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -608,7 +608,7 @@ func (s *websocketServiceTestSuite) TestWsAggTradeServe() {
 			IsBuyerMaker:          false,
 		}
 		s.assertWsAggTradeEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -675,7 +675,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -718,7 +718,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedAggTradeServe() {
 			IsBuyerMaker:          false,
 		}
 		s.assertWsAggTradeEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -806,7 +806,7 @@ func (s *websocketServiceTestSuite) testWsUserDataServe(data []byte, expectedEve
 
 	doneC, stopC, _, err := WsUserDataServe("fakeListenKey", func(event *WsUserDataEvent) {
 		s.assertUserDataEvent(expectedEvent, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 
@@ -973,7 +973,7 @@ func (s *websocketServiceTestSuite) TestWsMarketStatServe() {
 			Count:              18151,
 		}
 		s.assertWsMarketStatEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1041,7 +1041,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedMarketStatServe() {
 			Count:              18151,
 		}
 		s.assertWsMarketStatEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1184,7 +1184,7 @@ func (s *websocketServiceTestSuite) TestWsAllMarketsStatServe() {
 			},
 		}
 		s.assertWsAllMarketsStatEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1216,7 +1216,7 @@ func (s *websocketServiceTestSuite) TestWsTradeServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsTradeServe("BNBBTC", func(event *WsTradeEvent, connectionId int) {
+	doneC, stopC, _, err := WsTradeServe("BNBBTC", func(event *WsTradeEvent) {
 		e := &WsTradeEvent{
 			Event:         "trade",
 			Time:          123456789,
@@ -1230,7 +1230,7 @@ func (s *websocketServiceTestSuite) TestWsTradeServe() {
 			IsBuyerMaker:  true,
 		}
 		s.assertWsTradeEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1304,7 +1304,7 @@ func (s *websocketServiceTestSuite) TestWsAllMiniMarketsStatServe() {
 			},
 		}
 		s.assertWsAllMiniMarketsStatEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -1345,7 +1345,7 @@ func (s *websocketServiceTestSuite) TestBookTickerServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsBookTickerServe("BTCUSD_200626", func(event *WsBookTickerEvent, connectionId int) {
+	doneC, stopC, _, err := WsBookTickerServe("BTCUSD_200626", func(event *WsBookTickerEvent) {
 		e := &WsBookTickerEvent{
 			UpdateID:     17242169,
 			Symbol:       "BTCUSD_200626",
@@ -1356,7 +1356,7 @@ func (s *websocketServiceTestSuite) TestBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1379,7 +1379,7 @@ func (s *websocketServiceTestSuite) TestAllBookTickerServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsAllBookTickerServe(func(event *WsBookTickerEvent, connectionId int) {
+	doneC, stopC, _, err := WsAllBookTickerServe(func(event *WsBookTickerEvent) {
 		e := &WsBookTickerEvent{
 			UpdateID:     17242169,
 			Symbol:       "BTCUSD_200626",
@@ -1390,7 +1390,7 @@ func (s *websocketServiceTestSuite) TestAllBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 

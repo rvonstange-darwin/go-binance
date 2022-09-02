@@ -8,10 +8,10 @@ import (
 )
 
 // WsHandler handle raw websocket message
-type WsHandler func(message []byte, connectionId int)
+type WsHandler func(message []byte)
 
 // ErrHandler handles errors
-type ErrHandler func(err error, message string, connectionId int)
+type ErrHandler func(err error)
 
 // WsConfig webservice configuration
 type WsConfig struct {
@@ -26,22 +26,9 @@ func newWsConfig(endpoint string) *WsConfig {
 
 const MISSING_MARKET_DATA_THRESHOLD time.Duration = 2 * time.Second
 
-type RestartChannel struct {
-	Id     int
-	Status bool
-}
-
-type WsServeParams struct {
-	cfg          *WsConfig
-	handler      WsHandler
-	errHandler   ErrHandler
-	threshold    time.Duration
-	connectionId int
-}
-
-func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC chan RestartChannel, err error) {
+func wsServeFunc(cfg *WsConfig, handler WsHandler, errHandler ErrHandler, threshold ...time.Duration) (doneC, stopC chan struct{}, restartC chan bool, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	c, _, err := websocket.Dial(ctx, params.cfg.Endpoint, nil)
+	c, _, err := websocket.Dial(ctx, cfg.Endpoint, nil)
 	if err != nil {
 		cancel()
 		return nil, nil, nil, err
@@ -49,13 +36,15 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 	c.SetReadLimit(655350)
 	doneC = make(chan struct{})
 	stopC = make(chan struct{})
-	restartC = make(chan RestartChannel)
+	restartC = make(chan bool)
 	receivedDataC := make(chan bool)
 	go func() {
 		// This function will exit either on error from
 		// websocket.Conn.ReadMessage or when the stopC channel is
 		// closed by the client.
 		defer close(doneC)
+		defer close(stopC)
+		defer close(restartC)
 		defer close(receivedDataC)
 		defer cancel()
 		if WebsocketKeepalive {
@@ -65,8 +54,8 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 		// separate goroutine because ReadMessage is a blocking
 		// operation.
 		restartThreshold := MISSING_MARKET_DATA_THRESHOLD
-		if params.threshold != 0 {
-			restartThreshold = params.threshold
+		if len(threshold) > 0 {
+			restartThreshold = threshold[0]
 		}
 		silent := false
 		close := false
@@ -77,10 +66,7 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 					//If we received data then we do nothing
 				case <-time.After(restartThreshold):
 					//If we reach this case we need to perform the reconnect. This means we haven't received a message for 2 seconds.
-					restartC <- RestartChannel{
-						Id:     params.connectionId,
-						Status: true,
-					}
+					restartC <- true
 					close = true
 				case <-stopC:
 					silent = true
@@ -98,11 +84,7 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 			_, message, readErr := c.Read(ctx)
 			if readErr != nil {
 				if !silent {
-					params.errHandler(readErr, "WS read error occurred while reading a margin web socket.", params.connectionId)
-				}
-				restartC <- RestartChannel{
-					Id:     params.connectionId,
-					Status: true,
+					errHandler(readErr)
 				}
 				return
 			}
@@ -110,7 +92,7 @@ func wsServeFunc(params WsServeParams) (doneC, stopC chan struct{}, restartC cha
 				return
 			}
 			receivedDataC <- true
-			params.handler(message, params.connectionId)
+			handler(message)
 		}
 	}()
 	return

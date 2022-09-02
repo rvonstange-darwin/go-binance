@@ -11,7 +11,7 @@ import (
 
 type websocketServiceTestSuite struct {
 	baseTestSuite
-	origWsServe func(WsServeParams) (chan struct{}, chan struct{}, chan RestartChannel, error)
+	origWsServe func(*WsConfig, WsHandler, ErrHandler) (chan struct{}, chan struct{}, chan bool, error)
 	serveCount  int
 }
 
@@ -29,18 +29,18 @@ func (s *websocketServiceTestSuite) TearDownTest() {
 }
 
 func (s *websocketServiceTestSuite) mockWsServe(data []byte, err error) {
-	wsServe = func(params WsServeParams) (doneC, stopC chan struct{}, restartC chan RestartChannel, innerErr error) {
+	wsServe = func(cfg *WsConfig, handler WsHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan bool, innerErr error) {
 		s.serveCount++
 		doneC = make(chan struct{})
 		stopC = make(chan struct{})
-		restartC = make(chan RestartChannel)
+		restartC = make(chan bool)
 		go func() {
 			<-stopC
 			close(doneC)
 		}()
-		params.handler(data, params.connectionId)
+		handler(data)
 		if err != nil {
-			params.errHandler(err, "", 0)
+			errHandler(err)
 		}
 		return doneC, stopC, restartC, nil
 	}
@@ -86,7 +86,7 @@ func (s *websocketServiceTestSuite) TestAggTradeServe() {
 		}
 		s.assertWsAggTradeEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -128,7 +128,7 @@ func (s *websocketServiceTestSuite) TestCombinedAggTradeServe() {
 		}
 		s.assertWsAggTradeEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -176,7 +176,7 @@ func (s *websocketServiceTestSuite) testMarkPriceServe(rate *time.Duration, expe
 		}
 		s.assertWsMarkPriceEvent(e, event)
 	}
-	errHandler := func(err error, message string, connectionId int) {
+	errHandler := func(err error) {
 	}
 
 	var doneC, stopC chan struct{}
@@ -252,7 +252,7 @@ func (s *websocketServiceTestSuite) testAllMarkPriceServe(rate *time.Duration, e
 		}}
 		s.assertWsMarkPriceEvent(e[0], event[0])
 	}
-	errHandler := func(err error, message string, connectionId int) {}
+	errHandler := func(err error) {}
 
 	var doneC, stopC chan struct{}
 	var err error
@@ -366,7 +366,7 @@ func (s *websocketServiceTestSuite) TestKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -457,7 +457,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedKlineServe() {
 			},
 		}
 		s.assertWsKlineEventEqual(e, event)
-	}, func(err error, message string, connectionId int) {
+	}, func(err error) {
 		s.r().EqualError(err, fakeErrMsg)
 	})
 	s.r().NoError(err)
@@ -495,7 +495,7 @@ func (s *websocketServiceTestSuite) TestMiniMarketTickerServe() {
 		}
 		s.assertWsMinMarketTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -534,7 +534,7 @@ func (s *websocketServiceTestSuite) TestAllMiniMarketTickerServe() {
 		}}
 		s.assertWsMinMarketTickerEvent(e[0], event[0])
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -604,7 +604,7 @@ func (s *websocketServiceTestSuite) TestMarketTickerServe() {
 		}
 		s.assertWsMarketTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -661,7 +661,7 @@ func (s *websocketServiceTestSuite) TestAllMarketTickerServe() {
 		}}
 		s.assertWsMarketTickerEvent(e[0], event[0])
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -722,7 +722,7 @@ func (s *websocketServiceTestSuite) TestBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -761,7 +761,7 @@ func (s *websocketServiceTestSuite) TestAllBookTickerServe() {
 		}
 		s.assertWsBookTickerEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -825,7 +825,7 @@ func (s *websocketServiceTestSuite) TestLiquidationOrderServe() {
 		}
 		s.assertLiquidationOrderEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -876,7 +876,7 @@ func (s *websocketServiceTestSuite) TestAllLiquidationOrderServe() {
 		}
 		s.assertLiquidationOrderEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -928,7 +928,7 @@ func (s *websocketServiceTestSuite) testPartialDepthServe(rate *time.Duration, e
 	s.mockWsServe(data, expectedErr)
 	defer s.assertWsServe(expectedServeCnt)
 
-	handler := func(event *WsDepthEvent, connectionId int) {
+	handler := func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             1571889248277,
@@ -942,7 +942,7 @@ func (s *websocketServiceTestSuite) testPartialDepthServe(rate *time.Duration, e
 		}
 		s.assertDepthEvent(e, event)
 	}
-	errHandler := func(err error, message string, connectionId int) {
+	errHandler := func(err error) {
 	}
 
 	var doneC, stopC chan struct{}
@@ -1021,7 +1021,7 @@ func (s *websocketServiceTestSuite) testDiffDepthServe(rate *time.Duration, expe
 	s.mockWsServe(data, expectedErr)
 	defer s.assertWsServe(expectedServeCnt)
 
-	handler := func(event *WsDepthEvent, connectionId int) {
+	handler := func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             123456789,
@@ -1035,7 +1035,7 @@ func (s *websocketServiceTestSuite) testDiffDepthServe(rate *time.Duration, expe
 		}
 		s.assertDepthEvent(e, event)
 	}
-	errHandler := func(err error, message string, connectionId int) {
+	errHandler := func(err error) {
 	}
 
 	var doneC, stopC chan struct{}
@@ -1078,7 +1078,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedDiffDepthServe() {
 	s.mockWsServe(data, errors.New(fakeErrMsg))
 	defer s.assertWsServe()
 
-	doneC, stopC, _, err := WsCombinedDiffDepthServe(symbols, func(event *WsDepthEvent, connectionId int) {
+	doneC, stopC, _, err := WsCombinedDiffDepthServe(symbols, func(event *WsDepthEvent) {
 		e := &WsDepthEvent{
 			Event:            "depthUpdate",
 			Time:             1628847118038,
@@ -1092,7 +1092,7 @@ func (s *websocketServiceTestSuite) TestWsCombinedDiffDepthServe() {
 		}
 		s.assertDepthEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1184,7 +1184,7 @@ func (s *websocketServiceTestSuite) TestBLVTInfoServe() {
 		}
 		s.assertBLVTInfoEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1255,7 +1255,7 @@ func (s *websocketServiceTestSuite) TestBLVTKlineServe() {
 		}
 		s.assertBLVTKlineEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1328,7 +1328,7 @@ func (s *websocketServiceTestSuite) TestWsCompositiveIndexServe() {
 		}
 		s.assertCompositeIndexEvent(e, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
@@ -1358,7 +1358,7 @@ func (s *websocketServiceTestSuite) testWsUserDataServe(data []byte, expectedEve
 	doneC, stopC, _, err := WsUserDataServe("fakeListenKey", func(event *WsUserDataEvent) {
 		s.assertUserDataEvent(expectedEvent, event)
 	},
-		func(err error, message string, connectionId int) {
+		func(err error) {
 			s.r().EqualError(err, fakeErrMsg)
 		})
 
