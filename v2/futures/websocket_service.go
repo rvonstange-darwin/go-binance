@@ -600,10 +600,10 @@ func WsDiffDepthServe(symbol string, handler WsDepthHandler, errHandler ErrHandl
 }
 
 // WsCombinedDepthServe is similar to WsPartialDepthServe, but it for multiple symbols
-func WsCombinedDepthServe(symbolLevels map[string]string, handler WsDepthHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan RestartChannel, err error) {
+func WsCombinedDepthServe(symbolLevels map[string]string, rate string, handler WsDepthHandler, errHandler ErrHandler) (doneC, stopC chan struct{}, restartC chan RestartChannel, err error) {
 	endpoint := getCombinedEndpoint()
 	for s, l := range symbolLevels {
-		endpoint += fmt.Sprintf("%s@depth%s", strings.ToLower(s), l) + "/"
+		endpoint += fmt.Sprintf("%s@depth%s@%sms", strings.ToLower(s), l, rate) + "/"
 	}
 	endpoint = endpoint[:len(endpoint)-1]
 	cfg := newWsConfig(endpoint)
